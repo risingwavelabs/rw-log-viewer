@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogFilter, LogStats } from '../types/log';
 import { Search, Filter, X, Plus, Minus } from 'lucide-react';
 import { saveExcludePatterns } from '../utils/localStorage';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface FilterPanelProps {
   filter: LogFilter;
@@ -20,6 +21,22 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   divideByEpoch = false,
   onDivideByEpochChange
 }) => {
+  const [searchInput, setSearchInput] = useState(filter.searchText || '');
+  const debouncedSearchText = useDebounce(searchInput, 300);
+
+  // Update filter when debounced search text changes
+  useEffect(() => {
+    if (debouncedSearchText !== filter.searchText) {
+      onFilterChange({ ...filter, searchText: debouncedSearchText });
+    }
+  }, [debouncedSearchText, filter, onFilterChange]);
+
+  // Sync search input with external changes
+  useEffect(() => {
+    if (filter.searchText !== searchInput) {
+      setSearchInput(filter.searchText || '');
+    }
+  }, [filter.searchText, searchInput]);
   const handleLevelChange = (level: string, checked: boolean) => {
     const levels = filter.levels || [];
     const newLevels = checked
@@ -37,7 +54,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   };
 
   const handleSearchChange = (searchText: string) => {
-    onFilterChange({ ...filter, searchText });
+    setSearchInput(searchText);
   };
 
   const handleExcludePatternAdd = () => {
@@ -93,7 +110,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400" />
           <input
             type="text"
-            value={filter.searchText || ''}
+            value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search in messages..."
             className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

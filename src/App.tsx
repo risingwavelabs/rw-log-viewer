@@ -1,10 +1,13 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { LogEntry, LogFilter, LogStats } from './types/log';
+import { type Virtualizer } from '@tanstack/react-virtual';
+import { LogEntry, LogFilter } from './types/log';
 import { LogParser } from './utils/logParser';
 import { FileUpload } from './components/FileUpload';
 import { FilterPanel } from './components/FilterPanel';
 import { LogViewer } from './components/LogViewer';
 import { SearchHighlight } from './components/SearchHighlight';
+import { useErrorToast } from './hooks/useErrorToast';
+import { useLogStats } from './hooks/useLogStats';
 import { formatFileSize } from './utils/formatters';
 import { loadExcludePatterns } from './utils/localStorage';
 
@@ -20,7 +23,8 @@ function App() {
   const [showSearchHighlight, setShowSearchHighlight] = useState(false);
   
   const logViewerRef = useRef<HTMLDivElement | null>(null);
-  const virtualizerRef = useRef<any>(null);
+  const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(null);
+  const { showError, showWarning, ToastContainer } = useErrorToast();
 
   // Load exclude patterns from localStorage on component mount
   useEffect(() => {
@@ -43,49 +47,8 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Calculate stats from log entries
-  const stats: LogStats = useMemo(() => {
-    const levelCounts: Record<string, number> = {};
-    const actorIds = new Set<number>();
-    const spans = new Set<string>();
-    const epochs = new Set<string>();
-    let minTime = new Date();
-    let maxTime = new Date(0);
-
-    logEntries.forEach(entry => {
-      // Count levels
-      levelCounts[entry.level] = (levelCounts[entry.level] || 0) + 1;
-      
-      // Collect actor IDs
-      if (entry.actorId) {
-        actorIds.add(entry.actorId);
-      }
-      
-      // Collect spans
-      spans.add(entry.span);
-      
-      // Collect epochs
-      if (entry.currEpoch) {
-        epochs.add(entry.currEpoch);
-      }
-      
-      // Track time range
-      if (entry.timestamp < minTime) minTime = entry.timestamp;
-      if (entry.timestamp > maxTime) maxTime = entry.timestamp;
-    });
-
-    return {
-      totalEntries: logEntries.length,
-      levelCounts,
-      actorIds: Array.from(actorIds).sort((a, b) => a - b),
-      spans: Array.from(spans).sort(),
-      epochs: Array.from(epochs).sort(),
-      timeRange: {
-        start: minTime,
-        end: maxTime
-      }
-    };
-  }, [logEntries]);
+  // Calculate stats from log entries using optimized hook
+  const stats = useLogStats(logEntries);
 
   // Filter log entries based on current filter
   const filteredEntries = useMemo(() => {
@@ -227,16 +190,45 @@ function App() {
   const handleFileLoad = async (content: string, filename: string) => {
     setIsLoading(true);
     setFilename(filename);
-    setOriginalFileSize(new Blob([content]).size);
+    const fileSize = new Blob([content]).size;
+    setOriginalFileSize(fileSize);
+    
+    // File size validation
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    const LARGE_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    
+    if (fileSize > MAX_FILE_SIZE) {
+      showError(
+        'File Too Large',
+        `The file size (${formatFileSize(fileSize)}) exceeds the maximum allowed size of ${formatFileSize(MAX_FILE_SIZE)}. Please try a smaller file.`
+      );
+      setIsLoading(false);
+      return;
+    }
+    
+    if (fileSize > LARGE_FILE_SIZE) {
+      showWarning(
+        'Large File Warning',
+        `The file size (${formatFileSize(fileSize)}) is quite large. Processing may take longer and could impact browser performance.`
+      );
+    }
     
     try {
       // Parse log file in a timeout to allow UI to update
       await new Promise(resolve => setTimeout(resolve, 100));
       const entries = LogParser.parseLogFile(content);
       setLogEntries(entries);
+      
+      if (entries.length === 0) {
+        showWarning('Empty Log File', 'The uploaded file appears to be empty or contains no valid log entries.');
+      }
     } catch (error) {
       console.error('Error parsing log file:', error);
-      alert('Error parsing log file. Please check the file format.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showError(
+        'Failed to Parse Log File',
+        `Could not parse the log file. Please check the file format and try again.\n\nError: ${errorMessage}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -262,7 +254,7 @@ function App() {
               Upload a log file to analyze actor activity, epochs, and debug information
             </p>
           </div>
-          <FileUpload onFileLoad={handleFileLoad} isLoading={isLoading} />
+          <FileUpload onFileLoad={handleFileLoad} isLoading={isLoading} onError={showError} />
         </div>
       </div>
     );
@@ -348,6 +340,9 @@ function App() {
           onClose={handleSearchHighlightClose}
         />
       )}
+      
+      {/* Error Toast Container */}
+      <ToastContainer />
     </div>
   );
 }

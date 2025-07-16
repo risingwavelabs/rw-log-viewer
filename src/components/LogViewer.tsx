@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import { LogEntry } from '../types/log';
 import { LogEntryComponent } from './LogEntry';
 import { EpochDivider } from './EpochDivider';
@@ -14,7 +14,7 @@ interface LogViewerProps {
   divideByEpoch?: boolean;
   searchHighlight?: string;
   currentMatchIndex?: number;
-  virtualizerRef?: React.RefObject<any>;
+  virtualizerRef?: React.RefObject<Virtualizer<HTMLDivElement, Element> | null>;
 }
 
 export const LogViewer: React.FC<LogViewerProps> = ({ entries, parentRef, divideByEpoch = false, searchHighlight, currentMatchIndex = -1, virtualizerRef }) => {
