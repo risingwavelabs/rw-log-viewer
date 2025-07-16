@@ -1,9 +1,10 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { LogEntry, LogFilter, LogStats } from './types/log';
 import { LogParser } from './utils/logParser';
 import { FileUpload } from './components/FileUpload';
 import { FilterPanel } from './components/FilterPanel';
 import { LogViewer } from './components/LogViewer';
+import { SearchHighlight } from './components/SearchHighlight';
 import { formatFileSize } from './utils/formatters';
 import { loadExcludePatterns } from './utils/localStorage';
 
@@ -14,8 +15,12 @@ function App() {
   const [filename, setFilename] = useState<string>('');
   const [originalFileSize, setOriginalFileSize] = useState<number>(0);
   const [divideByEpoch, setDivideByEpoch] = useState(true);
+  const [searchHighlight, setSearchHighlight] = useState<string>('');
+  const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
+  const [showSearchHighlight, setShowSearchHighlight] = useState(false);
   
   const logViewerRef = useRef<HTMLDivElement | null>(null);
+  const virtualizerRef = useRef<any>(null);
 
   // Load exclude patterns from localStorage on component mount
   useEffect(() => {
@@ -23,6 +28,19 @@ function App() {
     if (savedPatterns.length > 0) {
       setFilter(prev => ({ ...prev, excludePatterns: savedPatterns }));
     }
+  }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearchHighlight(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Calculate stats from log entries
@@ -110,6 +128,101 @@ function App() {
       return true;
     });
   }, [logEntries, filter]);
+
+  // Calculate search highlight matches
+  const searchMatches = useMemo(() => {
+    if (!searchHighlight.trim()) return [];
+    
+    const searchLower = searchHighlight.toLowerCase();
+    const matches: number[] = [];
+    
+    filteredEntries.forEach((entry, index) => {
+      if (entry.message.toLowerCase().includes(searchLower) || 
+          entry.span.toLowerCase().includes(searchLower)) {
+        matches.push(index);
+      }
+    });
+    
+    return matches;
+  }, [filteredEntries, searchHighlight]);
+
+  // Helper function to scroll to a specific match
+  const scrollToMatch = useCallback((matchIndex: number) => {
+    if (matchIndex < 0 || matchIndex >= searchMatches.length) return;
+    
+    const entryIndex = searchMatches[matchIndex];
+    
+    // Calculate the viewer item index including dividers
+    let viewerItemIndex = 0;
+    let processedEntries = 0;
+    
+    if (divideByEpoch) {
+      // Account for dividers when divideByEpoch is true
+      let lastEpoch: string | null = null;
+      
+      for (let i = 0; i < filteredEntries.length; i++) {
+        const entry = filteredEntries[i];
+        
+        // Check if we need to add a divider
+        if (entry.currEpoch && entry.prevEpoch && entry.currEpoch !== lastEpoch) {
+          viewerItemIndex++; // Add divider
+          lastEpoch = entry.currEpoch;
+        }
+        
+        if (processedEntries === entryIndex) {
+          break;
+        }
+        
+        viewerItemIndex++; // Add entry
+        processedEntries++;
+      }
+    } else {
+      viewerItemIndex = entryIndex;
+    }
+    
+    // Scroll to the item using the virtualizer
+    if (virtualizerRef.current) {
+      virtualizerRef.current.scrollToIndex(viewerItemIndex, { align: 'center' });
+    }
+  }, [searchMatches, divideByEpoch, filteredEntries]);
+
+  // Navigation functions for search highlights
+  const goToNextMatch = () => {
+    if (searchMatches.length === 0) return;
+    
+    const nextIndex = currentMatchIndex < searchMatches.length - 1 
+      ? currentMatchIndex + 1 
+      : 0;
+    setCurrentMatchIndex(nextIndex);
+    scrollToMatch(nextIndex);
+  };
+
+  const goToPreviousMatch = () => {
+    if (searchMatches.length === 0) return;
+    
+    const prevIndex = currentMatchIndex > 0 
+      ? currentMatchIndex - 1 
+      : searchMatches.length - 1;
+    setCurrentMatchIndex(prevIndex);
+    scrollToMatch(prevIndex);
+  };
+
+  // Reset current match index when search changes
+  useEffect(() => {
+    if (searchMatches.length > 0) {
+      setCurrentMatchIndex(0);
+      // Scroll to first match
+      setTimeout(() => scrollToMatch(0), 100);
+    } else {
+      setCurrentMatchIndex(-1);
+    }
+  }, [searchMatches, scrollToMatch]);
+
+  const handleSearchHighlightClose = () => {
+    setShowSearchHighlight(false);
+    setSearchHighlight('');
+    setCurrentMatchIndex(-1);
+  };
 
   const handleFileLoad = async (content: string, filename: string) => {
     setIsLoading(true);
@@ -212,12 +325,29 @@ function App() {
             ) : (
               <LogViewer
                 entries={filteredEntries}
+                parentRef={logViewerRef}
                 divideByEpoch={divideByEpoch}
+                searchHighlight={searchHighlight}
+                currentMatchIndex={currentMatchIndex}
+                virtualizerRef={virtualizerRef}
               />
             )}
           </div>
         </div>
       </div>
+      
+      {/* Search Highlight Overlay */}
+      {showSearchHighlight && (
+        <SearchHighlight
+          searchTerm={searchHighlight}
+          onSearchChange={setSearchHighlight}
+          currentMatch={currentMatchIndex}
+          totalMatches={searchMatches.length}
+          onNextMatch={goToNextMatch}
+          onPreviousMatch={goToPreviousMatch}
+          onClose={handleSearchHighlightClose}
+        />
+      )}
     </div>
   );
 }

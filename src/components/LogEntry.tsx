@@ -6,6 +6,8 @@ import clsx from 'clsx';
 
 interface LogEntryProps {
   entry: LogEntry;
+  searchHighlight?: string;
+  isCurrentMatch?: boolean;
 }
 
 const levelColors = {
@@ -15,7 +17,32 @@ const levelColors = {
   ERROR: 'text-red-600 bg-red-50',
 };
 
-export const LogEntryComponent: React.FC<LogEntryProps> = ({ entry }) => {
+// Function to highlight search terms in text
+const highlightText = (text: string, searchTerm: string, isCurrentMatch: boolean = false) => {
+  if (!searchTerm.trim()) return text;
+  
+  const parts = text.split(new RegExp(`(${searchTerm})`, 'gi'));
+  return parts.map((part, index) => {
+    if (part.toLowerCase() === searchTerm.toLowerCase()) {
+      return (
+        <span 
+          key={index} 
+          className={clsx(
+            'px-1 rounded font-semibold',
+            isCurrentMatch 
+              ? 'bg-orange-300 text-black' 
+              : 'bg-yellow-200 text-black'
+          )}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+};
+
+export const LogEntryComponent: React.FC<LogEntryProps> = ({ entry, searchHighlight, isCurrentMatch = false }) => {
   return (
     <div className={clsx(
       'p-3 border-b border-gray-200 hover:bg-gray-50 transition-colors',
@@ -46,7 +73,8 @@ export const LogEntryComponent: React.FC<LogEntryProps> = ({ entry }) => {
           <div className="text-gray-700 font-medium text-xs text-center break-words w-40 leading-tight">
             {entry.span.replace("risingwave","rw").split('::').map((part, index) => (
               <React.Fragment key={index}>
-                {part + (index < entry.span.split('::').length - 1 ? '::' : '')}
+                {searchHighlight ? highlightText(part, searchHighlight, isCurrentMatch) : part}
+                {index < entry.span.split('::').length - 1 ? '::' : ''}
                 {index < entry.span.split('::').length - 1 && <br />}
               </React.Fragment>
             ))}
@@ -86,7 +114,7 @@ export const LogEntryComponent: React.FC<LogEntryProps> = ({ entry }) => {
           {/* Message */}
           <div className="text-gray-800">
             <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed overflow-hidden">
-              {entry.message}
+              {searchHighlight ? highlightText(entry.message, searchHighlight, isCurrentMatch) : entry.message}
             </pre>
           </div>
           
