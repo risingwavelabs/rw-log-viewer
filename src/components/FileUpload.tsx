@@ -72,31 +72,51 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, isLoading, o
   }, []);
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-lg mx-auto">
       <div
-        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+        className="relative border-2 border-dashed border-blue-300 rounded-2xl p-12 text-center hover:border-blue-400 transition-all duration-300 bg-white/60 backdrop-blur-sm shadow-lg hover:shadow-xl group"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
-        <div className="flex flex-col items-center space-y-4">
+        <div className="flex flex-col items-center space-y-6">
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <p className="text-gray-600">Processing log file...</p>
+              <div className="relative">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/20 to-indigo-600/20 animate-pulse"></div>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-medium text-gray-800 mb-1">Processing log file...</p>
+                <p className="text-sm text-gray-600">This may take a moment for large files</p>
+              </div>
             </>
           ) : (
             <>
-              <Upload className="h-12 w-12 text-gray-400" />
-              <div className="space-y-2">
-                <p className="text-lg font-medium text-gray-900">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <Upload className="h-8 w-8 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center animate-bounce">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-2xl font-bold text-gray-900">
                   Upload Log File
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-gray-600 leading-relaxed">
                   Drag and drop your log file here, or click to browse
                 </p>
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                  <span className="bg-gray-100 px-2 py-1 rounded">.log</span>
+                  <span className="bg-gray-100 px-2 py-1 rounded">.txt</span>
+                  <span className="text-gray-400">files supported</span>
+                </div>
               </div>
-              <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 cursor-pointer transition-colors">
-                <File className="h-4 w-4 mr-2" />
+              <label className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 cursor-pointer transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium">
+                <File className="h-5 w-5 mr-2" />
                 Choose File
                 <input
                   type="file"
@@ -108,6 +128,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileLoad, isLoading, o
             </>
           )}
         </div>
+        
+        {/* Decorative elements */}
+        <div className="absolute top-4 right-4 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-4 left-4 w-3 h-3 bg-indigo-400 rounded-full animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-2 w-1 h-1 bg-blue-300 rounded-full animate-pulse delay-500"></div>
       </div>
     </div>
   );

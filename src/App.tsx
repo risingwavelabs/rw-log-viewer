@@ -10,6 +10,7 @@ import { useErrorToast } from './hooks/useErrorToast';
 import { useLogStats } from './hooks/useLogStats';
 import { formatFileSize } from './utils/formatters';
 import { loadExcludePatterns } from './utils/localStorage';
+import clsx from 'clsx';
 
 function App() {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
@@ -21,6 +22,7 @@ function App() {
   const [searchHighlight, setSearchHighlight] = useState<string>('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1);
   const [showSearchHighlight, setShowSearchHighlight] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(true);
   
   const logViewerRef = useRef<HTMLDivElement | null>(null);
   const virtualizerRef = useRef<Virtualizer<HTMLDivElement, Element> | null>(null);
@@ -244,14 +246,24 @@ function App() {
 
   if (logEntries.length === 0 && !isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <div className="max-w-2xl w-full px-4">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <div className="mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4">
               RisingWave Log Analyzer
             </h1>
-            <p className="text-gray-600">
-              Upload a log file to analyze actor activity, epochs, and debug information
+            <p className="text-xl text-gray-600 mb-2">
+              Analyze actor activity, epochs, and debug information
+            </p>
+            <p className="text-gray-500">
+              Upload a log file to get started with advanced filtering and search capabilities
             </p>
           </div>
           <FileUpload onFileLoad={handleFileLoad} isLoading={isLoading} onError={showError} />
@@ -261,57 +273,102 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              RisingWave Log Analyzer
-            </h1>
-            {filename && (
-              <p className="text-sm text-gray-600">
-                {filename} ({formatFileSize(originalFileSize)}) - 
-                {filteredEntries.length.toLocaleString()} / {stats.totalEntries.toLocaleString()} entries
-              </p>
-            )}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 shadow-sm">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  RisingWave Log Analyzer
+                </h1>
+                {filename && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    <span className="font-medium">{filename}</span> ({formatFileSize(originalFileSize)}) • 
+                    <span className="text-blue-600 font-medium">{filteredEntries.length.toLocaleString()}</span> / {stats.totalEntries.toLocaleString()} entries
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Toggle Filter Panel Button (Mobile) */}
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className="lg:hidden px-3 py-2.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span className="hidden sm:inline">Filters</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setLogEntries([]);
+                  setFilter({});
+                  setFilename('');
+                  setOriginalFileSize(0);
+                }}
+                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                <span className="hidden sm:inline">Load New File</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => {
-              setLogEntries([]);
-              setFilter({});
-              setFilename('');
-              setOriginalFileSize(0);
-            }}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Load New File
-          </button>
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex h-[calc(100vh-100px)] relative">
         {/* Filter Panel */}
-        <FilterPanel
-          filter={filter}
-          stats={stats}
-          onFilterChange={handleFilterChange}
-          onClearFilters={handleClearFilters}
-          divideByEpoch={divideByEpoch}
-          onDivideByEpochChange={setDivideByEpoch}
-        />
+        <div className={clsx(
+          'bg-white/80 backdrop-blur-sm border-r border-gray-200/50 shadow-sm transition-all duration-300',
+          'lg:relative lg:translate-x-0',
+          showFilterPanel ? 'absolute z-10 translate-x-0' : 'absolute z-10 -translate-x-full lg:translate-x-0',
+          'lg:block'
+        )}>
+          <FilterPanel
+            filter={filter}
+            stats={stats}
+            onFilterChange={handleFilterChange}
+            onClearFilters={handleClearFilters}
+            divideByEpoch={divideByEpoch}
+            onDivideByEpochChange={setDivideByEpoch}
+            onClose={() => setShowFilterPanel(false)}
+          />
+        </div>
+
+        {/* Overlay for mobile */}
+        {showFilterPanel && (
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-5"
+            onClick={() => setShowFilterPanel(false)}
+          />
+        )}
 
         {/* Log Viewer */}
         <div className="flex-1 overflow-hidden">
           <div
             ref={logViewerRef}
-            className="h-full overflow-auto bg-white"
+            className="h-full overflow-auto bg-white/60 backdrop-blur-sm"
           >
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Processing log file...</p>
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-6"></div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-600/20 to-indigo-600/20 animate-pulse"></div>
+                  </div>
+                  <p className="text-lg font-medium text-gray-800 mb-2">Processing log file...</p>
+                  <p className="text-sm text-gray-600">Analyzing {formatFileSize(originalFileSize)} of log data</p>
                 </div>
               </div>
             ) : (
