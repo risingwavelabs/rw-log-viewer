@@ -38,7 +38,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     if (filter.searchText !== searchInput) {
       setSearchInput(filter.searchText || '');
     }
-  }, [filter.searchText, searchInput]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter.searchText]); // Intentionally exclude searchInput to avoid infinite updates
   const handleLevelChange = (level: string, checked: boolean) => {
     const levels = filter.levels || [];
     const newLevels = checked
@@ -119,9 +120,11 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
       {/* Search */}
       <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Search
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-semibold text-gray-700">
+            Search
+          </label>
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
